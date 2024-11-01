@@ -2,6 +2,8 @@ import re
 
 def clean_text(text):
     # Remove punctuation and special characters
+    if text is None:
+        raise ValueError("Input text is None. Please provide a valid string.")
     text = re.sub(r'[^A-Za-z0-9\s]', '', text)
     # Convert to lowercase
     text = text.lower()
