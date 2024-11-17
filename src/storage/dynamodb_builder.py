@@ -18,11 +18,13 @@ class DynamoDBBuilder:
         self.dynamodb = None
         self.table = None
 
+    @classmethod
     def set_region(self, region):
         logging.info(f"Setting region: {region}")
         self.region = region
         return self
 
+    @classmethod
     def connect_to_dynamodb(self):
         try:
             logging.info(f"Connecting to DynamoDB in region: {self.region}")
@@ -32,6 +34,7 @@ class DynamoDBBuilder:
             raise
         return self
 
+    @classmethod
     def find_table(self, table_name):
         try:
             logging.info(f"Finding table: {table_name}")
@@ -43,6 +46,7 @@ class DynamoDBBuilder:
             raise
         return self
 
+    @classmethod
     def insert_item(self, item):
         try:
             logging.info(f"Inserting item {item}")

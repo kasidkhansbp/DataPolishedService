@@ -1,5 +1,7 @@
 import re
 import logging
+import json
+import uuid
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s-%(levelname)s-%(message)s')
 def clean_text(text):
@@ -19,3 +21,18 @@ def clean_text(text):
     cleaned_text = cleaned_text.strip()  # Remove leading/trailing spaces
     logging.info("Text cleaning completed.")
     return cleaned_text
+
+def clean_response(text):
+    # Remove code block markers (` ```json ` and trailing backticks)
+    if text.startswith("```json"):
+        text = text[7:].strip()
+    if text.endswith("```"):
+        text = text[:-3].strip()
+    if text.endswith(",,,"):  # Remove trailing `,,,`
+        text = text[:-3].strip()
+    data = json.loads(text)
+    # DynamoDB expect Id as a partition key
+    data["Id"] = str(uuid.uuid4())
+    return data
+
+
