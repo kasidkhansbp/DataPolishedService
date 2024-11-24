@@ -21,16 +21,19 @@ def generate_structured_data(input_text):
             raise ValueError("OpenAI API key is required")
 
         prompt = (
-            "Convert the following unstructured doctor’s notes into a structured JSON format with the following categories: "
-            "Symptoms, History, Medications, Vitals, Observations, and Recommendations. "
-            "Each field should be formatted as per DynamoDB's data types, where: "
-            "- Strings are represented as {'S': 'value'}, "
-            "- Numbers as {'N': 'value'}, "
-            "- Lists as {'L': [{'S': 'value1'}, {'S': 'value2'}]}, "
-            "- Nested objects as {'M': {'field1': {'S': 'value1'}, 'field2': {'N': 'value2'}}}. "
-            "Ensure all information is logically organized and use complete sentences where necessary. "
+            "Convert the following unstructured doctor’s notes into a structured JSON format with the following fields: "
+            "Id, History, Medications, Vitals, Observations, Symptoms, and Recommendations. "
+            "The format should be structured as: "
+            "- History: A JSON object where each key is a condition (e.g., 'diabetes_mellitus') and its value is a string (e.g., 'Yes'). "
+            "- Medications: A list of strings representing medication names. "
+            "- Observations: A JSON object where each key is an observation type (e.g., 'ekg') and its value is a string description. "
+            "- Recommendations: A list of strings, each representing a recommendation. "
+            "- Symptoms: A list of strings describing symptoms. "
+            "- Vitals: A JSON object with keys for vitals (e.g., 'blood_pressure') and corresponding values. Numbers should be represented as integers where applicable. "
+            "Include an 'Id' field at the root level with a unique identifier as a string. "
+            "Ensure the output is human-readable and logically organized while maintaining simplicity. "
             f"Unstructured Notes: '{input_text}'. "
-            "Return the output as DynamoDB-compatible JSON with fields: Symptoms, History, Medications, Vitals, Observations, Recommendations."
+            "Return the output in this exact structure and format."
         )
 
         response = openai.chat.completions.create(
