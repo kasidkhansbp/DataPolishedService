@@ -6,7 +6,7 @@ class DynamoDBOutputParser(BaseOutputParser):
         # Define the schema with default values as null
         self.schema = {
             "Symptoms": {"L": [{"S": None}]},
-            "History": {"M": {"hypertension": {"S": None}, "diabetes_mellitus": {"S": None}}},
+            "History": {"M": {"S": {"S": None}}},
             "Medications": {"L": [{"S": None}]},
             "Vitals": {"M": {"blood_pressure": {"S": None}, "heart_rate": {"N": None}}},
             "Observations": {"M": {"lungs": {"S": None}, "heart_sounds": {"S": None}, "ekg": {"S": None}}},
