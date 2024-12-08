@@ -5,10 +5,11 @@ import boto3
 import botocore.exceptions
 
 from data_processing.clean_scripts import clean_text
+from langchain_utils.llm_scripts import generate_structured_data
+from storage.dynamodb_builder import DynamoDBBuilder
 
 
 class CommonUtilities:
-
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s - %(levelname)s - %(message)s"
@@ -19,7 +20,7 @@ class CommonUtilities:
 
     # code for init method with boto3 object initiation
 
-    def getSQSBatchResponse(self, event, context):
+    def process_sqs_batch_response(self, event, context):
         failed_messages = []
         for record in event['Records']:
             message_id = record['messageId']
@@ -27,8 +28,11 @@ class CommonUtilities:
             try:
                 logging.info(f"Processing message ID: {message_id} with body: {body}")
                 # Add message processing logic here
-                # read record
-
+                # Read the S3 file in chunks and return clean data.
+                file_contents = self.return_clean_s3_data(body)
+                logging.info(f"File contents fetched successfully.")
+                # Process the file contents
+                self.process_sqs_record(file_contents)
             except Exception as e:
                 logging.info(f"Failed to processing message ID: {message_id} Error: {str(e)}")
                 # add the message ID to failure list
@@ -60,7 +64,7 @@ class CommonUtilities:
             # stream the file in chunks
             file_contents = ""
             for chunk in file_stream.iter_lines():
-                file_contents+=chunk.decode('utf-8')+"\n"
+                file_contents += chunk.decode('utf-8') + "\n"
             return file_contents
 
         except botocore.exceptions.ClientError as e:
@@ -70,13 +74,12 @@ class CommonUtilities:
             logging.info(f"Unexpected error while reading the file. Error: {str(e)}")
             raise
 
-
-    def return_clean_s3_data(self,body):
+    # clean the content file for punctuation, multiple spaces or special characters
+    def return_clean_s3_data(self, body):
         return clean_text(self.read_s3_file(body))
 
     # send the cleaned data to LLM and store the response in DDB
     def process_sqs_record(self, text):
-        return
-
-
-
+        response = generate_structured_data(text)
+        return DynamoDBBuilder.set_region('us-west-2').connect_to_dynamodb().find_table("dynamodb-test").insert_item(
+            response)
