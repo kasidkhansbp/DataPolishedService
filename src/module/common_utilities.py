@@ -1,4 +1,11 @@
 import logging
+import json
+
+import boto3
+import botocore.exceptions
+
+from data_processing.clean_scripts import clean_text
+
 
 class CommonUtilities:
 
@@ -6,6 +13,9 @@ class CommonUtilities:
         level=logging.DEBUG,
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
+
+    def __init__(self):
+        self.s3_client = boto3.client('s3')
 
     # code for init method with boto3 object initiation
 
@@ -28,14 +38,44 @@ class CommonUtilities:
 
     # Extract S3 file path
     def get_s3_filepath(self, body):
-        return
+        """
+            Extract the S3 bucket name and object key from the SQS message body.
+            Assumes the body is JSON with an embedded S3 event structure.
+        """
+        body_data = json.loads(body)
+        s3_event = body_data['Records'][0]['s3']
+        bucket_name = s3_event['bucket']['name']
+        object_key = s3_event['object']['key']
+        return {"bucket_name": bucket_name, "object_key": object_key}
 
     # read S3 file and return the clean text
-    def get_s3_file(self, s3_filepath):
-        return
+    def read_s3_file(self, body):
+        s3_filepath = self.get_s3_filepath(body)
+        bucket_name = s3_filepath['bucket_name']
+        file_path = s3_filepath['object_key']
+        logging.info(f"Fetching file from S3 bucket name: {bucket_name}, file_path: {file_path}")
+        try:
+            response = self.s3_client.get_paginator(Bucket=bucket_name, Key=file_path)
+            file_stream = response['Body']
+            # stream the file in chunks
+            file_contents = ""
+            for chunk in file_stream.iter_lines():
+                file_contents+=chunk.decode('utf-8')+"\n"
+            return file_contents
+
+        except botocore.exceptions.ClientError as e:
+            logging.error(f"Error fetching file from S3. Error: {str(e)}")
+            raise
+        except Exception as e:
+            logging.info(f"Unexpected error while reading the file. Error: {str(e)}")
+            raise
+
+
+    def return_clean_s3_data(self,body):
+        return clean_text(self.read_s3_file(body))
 
     # send the cleaned data to LLM and store the response in DDB
-    def process_sqs_record(self):
+    def process_sqs_record(self, text):
         return
 
 
