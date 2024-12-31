@@ -24,7 +24,7 @@ def generate_structured_data(input_text):
             "Convert the following unstructured doctor’s notes into a structured JSON format with the following fields: "
             "Id, History, Medications, Vitals, Observations, Symptoms, and Recommendations. "
             "The format should be structured as: "
-            "- History: A JSON object where each key is a condition (e.g., 'diabetes_mellitus') and its value is a string (e.g., 'Yes'). "
+            "- History: A JSON object where each key is a condition "
             "- Medications: A list of strings representing medication names. "
             "- Observations: A JSON object where each key is an observation type (e.g., 'ekg') and its value is a string description. "
             "- Recommendations: A list of strings, each representing a recommendation. "
@@ -32,6 +32,7 @@ def generate_structured_data(input_text):
             "- Vitals: A JSON object with keys for vitals (e.g., 'blood_pressure') and corresponding values. Numbers should be represented as integers where applicable. "
             "Include an 'Id' field at the root level with a unique identifier as a string. "
             "Ensure the output is human-readable and logically organized while maintaining simplicity. "
+            "Do not, under any circumstance, make any assumptions regarding existing conditions"
             f"Unstructured Notes: '{input_text}'. "
             "Return the output in this exact structure and format."
         )
@@ -40,7 +41,8 @@ def generate_structured_data(input_text):
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": "You are a helpful assistant that extracts information from unstructured notes and returns data in JSON format."},
                   {"role": "user", "content": prompt}],
-            max_tokens=300
+            max_tokens=300,
+            temperature=0
         )
         result = clean_response(response.choices[0].message.content.strip())
         return result
