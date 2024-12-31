@@ -40,6 +40,11 @@ class CommonUtilities:
         # Return the batch item failures (required for partial batch response). Enable partial batch response.
         return {"batchItemFailures": failed_messages}
 
+    def process_local_file(self, filename):
+        with open(filename) as fp:
+            self.process_sqs_record(fp.read())
+        return {"batchItemFailures": []}
+
     # Extract S3 file path
     def get_s3_filepath(self, body):
         """
