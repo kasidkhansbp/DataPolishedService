@@ -1,6 +1,5 @@
 import logging
 
-import openai
 import os
 
 from data_processing.clean_scripts import clean_response
