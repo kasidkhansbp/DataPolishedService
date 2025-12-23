@@ -1,25 +1,28 @@
 import logging
-import os
 
 import openai
 import os
 
 from data_processing.clean_scripts import clean_response
+from openai import OpenAI
 
+# Create client ONCE (module-level or app startup)
+api_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_structured_data(input_text):
     try:
-        if not input_text:
+        # ---------- Validation ----------
+        if not input_text or not input_text.strip():
             logging.error("Input text is empty.")
             raise ValueError("Input text cannot be empty")
 
-        logging.info("starting data generation...")
-        openai.api_key = os.getenv('OPENAI_API_KEY')
-
-        if not openai.api_key:
-            logging.error("API key not found. Please set the OPENAI_API_KEY environment variable")
+        if not api_client.api_key:
+            logging.error("API key not found. Please set OPENAI_API_KEY.")
             raise ValueError("OpenAI API key is required")
 
+        logging.info("starting data generation...")
+
+        # ---------- Prompt ----------
         prompt = (
             "Convert the following unstructured doctor’s notes into a structured JSON format with the following fields: "
             "Id, History, Medications, Vitals, Observations, Symptoms, and Recommendations. "
@@ -37,15 +40,29 @@ def generate_structured_data(input_text):
             "Return the output in this exact structure and format."
         )
 
-        response = openai.chat.completions.create(
+        # ---------- OpenAI Responses API ----------
+        response = api_client.responses.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": "You are a helpful assistant that extracts information from unstructured notes and returns data in JSON format."},
-                  {"role": "user", "content": prompt}],
-            max_tokens=300,
+            input=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that extracts information from unstructured notes and returns data in JSON format."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_output_tokens=300,
             temperature=0
         )
-        result = clean_response(response.choices[0].message.content.strip())
-        return result
+        # ---------- Output handling ----------
+        # Preferred: use output_text (safe for non-schema responses)
+        output_text = response.output_text
+
+        if not output_text:
+            raise ValueError("Model returned empty response")
+        return clean_response(output_text)
 
     except Exception as e:
         logging.error(f"Error during structured data generation: {e}")
