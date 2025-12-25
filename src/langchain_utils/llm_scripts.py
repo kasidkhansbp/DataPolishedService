@@ -4,9 +4,56 @@ import os
 
 from data_processing.clean_scripts import clean_response
 from openai import OpenAI
+import logging
+from pydantic import ValidationError
+from src.models.model import DoctorNotes
+from src.module.enums import V
+from src.module.prompts import DOCTOR_NOTES_STRUCTURE_REPAIR_PROMPT, DOCTOR_NOTES_STRUCTURE_PROMPT
 
+REPAIR_MODEL = "gpt-4o-mini"
 # Create client ONCE (module-level or app startup)
 api_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def generate_structured_data_validated(input_text):
+    """
+    Validate the cleaned JSON produced by generate_structured_data using Pydantic.
+    On ValidationError, ask the model to repair the JSON up to MAX_RETRIES, then
+    persist failures for human review.
+    Returns a dict (validated and coerced) on success or raises on terminal failure.
+    """
+    # initial call to existing function that prepares the JSON string
+    current_json = generate_structured_data(input_text)
+
+    for attempt in range(1, V.MAX_RETRIES + 1):
+        try:
+            # Validate and parse the JSON using Pydantic
+            validated_data = DoctorNotes.model_validate(current_json)
+            return validated_data.model_dump()  # Return as dict on success
+        except ValidationError as ve:
+            logging.warning(f"Validation error on attempt {attempt}: {ve}")
+            if attempt == V.MAX_RETRIES:
+                logging.error("Max retries reached. Persisting invalid JSON for review.")
+                with open("invalid_jsons.log", "a") as f:
+                    f.write(current_json + "\n")
+                raise
+
+            # Call the model to repair the JSON
+            response = api_client.responses.create(
+                model= REPAIR_MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant that repairs JSON data to conform to a specified schema."
+                    },
+                    {
+                        "role": "user",
+                        "content": DOCTOR_NOTES_STRUCTURE_REPAIR_PROMPT
+                    }
+                ],
+                max_output_tokens=300,
+                temperature=0
+            )
+            current_json = response.output_text  # Update current_json for the next iteration
 
 def generate_structured_data(input_text):
     try:
@@ -21,24 +68,6 @@ def generate_structured_data(input_text):
 
         logging.info("starting data generation...")
 
-        # ---------- Prompt ----------
-        prompt = (
-            "Convert the following unstructured doctor’s notes into a structured JSON format with the following fields: "
-            "Id, History, Medications, Vitals, Observations, Symptoms, and Recommendations. "
-            "The format should be structured as: "
-            "- History: A JSON object where each key is a condition "
-            "- Medications: A list of strings representing medication names. "
-            "- Observations: A JSON object where each key is an observation type (e.g., 'ekg') and its value is a string description. "
-            "- Recommendations: A list of strings, each representing a recommendation. "
-            "- Symptoms: A list of strings describing symptoms. "
-            "- Vitals: A JSON object with keys for vitals (e.g., 'blood_pressure') and corresponding values. Numbers should be represented as integers where applicable. "
-            "Include an 'Id' field at the root level with a unique identifier as a string. "
-            "Ensure the output is human-readable and logically organized while maintaining simplicity. "
-            "Do not, under any circumstance, make any assumptions regarding existing conditions"
-            f"Unstructured Notes: '{input_text}'. "
-            "Return the output in this exact structure and format."
-        )
-
         # ---------- OpenAI Responses API ----------
         response = api_client.responses.create(
             model="gpt-4o-mini",
@@ -49,7 +78,7 @@ def generate_structured_data(input_text):
                 },
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": DOCTOR_NOTES_STRUCTURE_PROMPT
                 }
             ],
             max_output_tokens=300,
